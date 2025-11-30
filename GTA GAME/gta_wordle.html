@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTA Wordle</title>
+
+<style>
+  :root{
+    --bg:#111;
+    --card:#222;
+    --correct:#2ecc71;
+    --present:#f1c40f;
+    --absent:#555;
+    --accent:#00aaff;
+  }
+
+  body{
+    background:var(--bg);
+    color:#fff;
+    font-family:Arial, sans-serif;
+    margin:0;
+    text-align:center;
+  }
+
+  .home-btn-wrap{position:fixed;top:10px;left:10px;z-index:999999;}
+  .home-btn{
+    color:#fff;background:#000;padding:10px 15px;font-size:18px;
+    text-decoration:none;border-radius:10px;font-weight:700;
+  }
+
+  .stats-row{
+    margin-top:80px;
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .stats-box{
+    background:#000;
+    padding:10px 15px;
+    border-radius:10px;
+    font-size:18px;
+    font-weight:700;
+  }
+  .lives{color:#ff4747;}
+  .streak{color:#ffae00;text-shadow:0 0 6px #ffae00;}
+
+  h1{margin-top:20px;font-size:40px;letter-spacing:2px;}
+
+  #grid{
+    margin:20px auto;max-width:300px;
+    display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
+  }
+
+  .cell{
+    width:55px;height:55px;background:#222;border-radius:6px;
+    font-size:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;
+  }
+
+  #keyboard{max-width:400px;margin:20px auto;user-select:none;}
+  .key{
+    background:#333;padding:10px 12px;display:inline-block;
+    margin:4px;border-radius:6px;cursor:pointer;font-weight:bold;
+  }
+  .key:hover{background:#444;}
+
+  .correct{background:var(--correct)!important;color:#000!important;}
+  .present{background:var(--present)!important;color:#000!important;}
+  .absent{background:var(--absent)!important;color:#fff!important;}
+
+  .overlay{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;
+    z-index:9999999;
+  }
+  .overlay-box{
+    background:#222;padding:30px 40px;border-radius:15px;
+    font-size:24px;border:3px solid #fff;text-align:center;
+    max-width:80%;
+  }
+  .play-again{
+    margin-top:20px;padding:12px 20px;background:var(--accent);
+    border-radius:10px;font-size:20px;cursor:pointer;
+    color:#000;font-weight:bold;border:0;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="home-btn-wrap">
+  <a class="home-btn" href="floogys_games_index.html">Floogy´s Games</a>
+</div>
+
+<!-- ======== RACHA + VIDAS ======== -->
+<div class="stats-row">
+  <div class="stats-box">❤️ Vidas: <span id="lives" class="lives">6</span></div>
+  <div class="stats-box">🔥 Racha: <span id="streak" class="streak">0</span></div>
+  <div class="stats-box">🏆 Mejor: <span id="best" class="streak">0</span></div>
+</div>
+
+<h1>GTA WORDLE</h1>
+
+<div id="grid"></div>
+<div id="keyboard"></div>
+
+<script>
+/* ==========================
+      PALABRAS Y SISTEMA
+=========================== */
+let words = [
+  "smoke","nikos","lamar","roman","cesar","lazlo","vance","paulr",
+  "grove","vegas","palet","strip","beach","docks","vinew","harbo",
+  "bison","sultan","infern","hydra","sabre","alpha","faggio","flash","comet",
+  "rebel","buffa","ruiner","swing","elegy","ruins","viper","blaze","cluck","taxi1"
+];
+
+let lastAnswer = null;
+
+function pickNewAnswer(){
+  let filtered = words.filter(w => w !== lastAnswer);
+  let choice = filtered[Math.floor(Math.random()*filtered.length)];
+  lastAnswer = choice;
+  return choice;
+}
+
+let answer = pickNewAnswer().toLowerCase();
+
+/* =====================
+      VIDAS + RACHA
+===================== */
+const LIVES_MAX = 6;
+
+const STREAK_KEY = "wordle_streak";
+const BEST_KEY = "wordle_best";
+
+let lives = LIVES_MAX;
+let streak = parseInt(localStorage.getItem(STREAK_KEY)) || 0;
+let best = parseInt(localStorage.getItem(BEST_KEY)) || 0;
+
+document.getElementById("lives").textContent = lives;
+document.getElementById("streak").textContent = streak;
+document.getElementById("best").textContent = best;
+
+/* ======================
+      SISTEMA WORDLE
+====================== */
+const grid=document.getElementById("grid");
+const keyboard=document.getElementById("keyboard");
+
+let row=0, col=0;
+let board=Array(6).fill().map(()=>Array(5).fill(""));
+
+function drawGrid(){
+  for(let r=0;r<6;r++){
+    for(let c=0;c<5;c++){
+      let idx = r*5 + c;
+      let cell;
+      if(grid.children[idx]) cell = grid.children[idx];
+      else{
+        cell = document.createElement("div");
+        cell.className = "cell";
+        grid.appendChild(cell);
+      }
+      cell.textContent = board[r][c];
+    }
+  }
+}
+
+const keys=[..."QWERTYUIOP",..."ASDFGHJKL",..."ZXCVBNM","DEL","OK"];
+
+function drawKeyboard(){
+  keyboard.innerHTML="";
+  keys.forEach(k=>{
+    const key=document.createElement("div");
+    key.className="key";
+    key.id="key-"+k;
+    key.textContent=k;
+    key.onclick=()=>pressKey(k);
+    keyboard.appendChild(key);
+  });
+}
+
+function paintKey(letter, status){
+  if(status === "absent"){
+    let el = document.getElementById("key-"+letter.toUpperCase());
+    if(el && !el.classList.contains("correct") && !el.classList.contains("present")){
+      el.className = "key absent";
+    }
+  }
+}
+
+function showMessage(msg){
+  const overlay=document.createElement("div");
+  overlay.className="overlay";
+
+  overlay.innerHTML=`
+    <div class="overlay-box">
+      ${msg}
+      <div><button class="play-again" onclick="restartGame()">JUGAR OTRA VEZ</button></div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function restartGame(){
+  document.querySelector(".overlay")?.remove();
+
+  answer = pickNewAnswer().toLowerCase();
+  row=0; col=0;
+  lives = LIVES_MAX;
+
+  localStorage.setItem(STREAK_KEY, streak);
+  document.getElementById("lives").textContent = lives;
+
+  board = Array(6).fill().map(()=>Array(5).fill(""));
+
+  grid.querySelectorAll('.cell').forEach(c => {
+    c.textContent = "";
+    c.className = "cell";
+  });
+
+  drawKeyboard();
+}
+
+/* ========================
+      TECLADO FÍSICO
+======================== */
+document.addEventListener("keydown", e=>{
+  let k=e.key.toUpperCase();
+  if(k==="BACKSPACE") pressKey("DEL");
+  else if(k==="ENTER") pressKey("OK");
+  else if(/^[A-Z]$/.test(k)) pressKey(k);
+});
+
+function pressKey(k){
+  if(k==="DEL"){
+    if(col>0){col--; board[row][col]=""; drawGrid();}
+  }
+  else if(k==="OK"){
+    if(col===5) checkWord();
+  }
+  else{
+    if(col<5){
+      board[row][col]=k.toLowerCase();
+      col++;
+      drawGrid();
+    }
+  }
+}
+
+/* ========================
+          VERIFICAR
+======================== */
+function checkWord(){
+  let guess=board[row].join("");
+  let cells=[...grid.children].slice(row*5,row*5+5);
+
+  for(let i=0;i<5;i++){
+    let letter = guess[i];
+
+    if(letter===answer[i]){
+      cells[i].classList.add("correct");
+    }
+    else if(answer.includes(letter)){
+      cells[i].classList.add("present");
+    }
+    else {
+      cells[i].classList.add("absent");
+      paintKey(letter,"absent");
+    }
+  }
+
+  if(guess===answer){
+    streak++;
+    if(streak > best){
+      best = streak;
+      localStorage.setItem(BEST_KEY, best);
+    }
+    localStorage.setItem(STREAK_KEY, streak);
+
+    document.getElementById("streak").textContent = streak;
+    document.getElementById("best").textContent = best;
+
+    showMessage(`✔ ¡GANASTE!<br>Palabra:<br><b>${answer.toUpperCase()}</b>`);
+    return;
+  }
+
+  lives--;
+  document.getElementById("lives").textContent = lives;
+
+  row++; col=0;
+
+  if(lives <= 0){
+    streak = 0;
+    localStorage.setItem(STREAK_KEY, 0);
+    document.getElementById("streak").textContent = 0;
+
+    showMessage(`❌ Perdiste<br>La palabra era:<br><b>${answer.toUpperCase()}</b>`);
+    return;
+  }
+
+  if(row===6){
+    streak = 0;
+    localStorage.setItem(STREAK_KEY, 0);
+    document.getElementById("streak").textContent = 0;
+
+    showMessage(`❌ Perdiste<br>La palabra era:<br><b>${answer.toUpperCase()}</b>`);
+  }
+}
+
+drawGrid();
+drawKeyboard();
+
+</script>
+</body>
+</html>

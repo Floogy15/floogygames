@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz GTA – Reconstruido</title>
+<style>
+:root{--bg:#111;--card:#222;--accent:#00aaff;}
+body{font-family:Arial;background:var(--bg);color:#fff;text-align:center;margin:0;}
+.home-btn-wrap{position:fixed;top:10px;left:10px;z-index:99}
+.home-btn{background:#000;padding:10px 15px;border-radius:10px;color:#fff;text-decoration:none;font-weight:700}
+.stats-row{display:flex;justify-content:center;gap:12px;margin-top:70px;flex-wrap:wrap}
+.stats-box{background:#000;padding:10px 14px;border-radius:10px;font-weight:700;font-size:17px}
+.lives{color:#ff4747}.streak{color:#ffae00;text-shadow:0 0 6px #ffae00}
+.quiz-container{max-width:600px;margin:25px auto 40px;background:var(--card);padding:20px;border-radius:10px}
+.option{background:#333;padding:10px;margin:8px 0;cursor:pointer;border-radius:5px;transition:.2s}
+.option.correct{background:#2ecc71!important}.option.wrong{background:#e74c3c!important}
+#score{position:fixed;top:15px;right:20px;background:#000;padding:10px 20px;border-radius:10px;font-size:18px;z-index:99}
+img{width:100%;border-radius:10px;margin-bottom:15px}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999}
+.overlay-box{background:#111;padding:30px 36px;border-radius:14px;border:3px solid #fff;max-width:90%;text-align:center;font-size:22px}
+.play-again,.return-btn{margin-top:16px;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;border:0;font-size:18px}
+.play-again{background:var(--accent);color:#000}.return-btn{background:#444;color:#fff}
+</style>
+</head>
+<body>
+<div class="home-btn-wrap"><a class="home-btn" href="floogys_games_index.html">Floogy´s Games</a></div>
+<div class="stats-row">
+<div class="stats-box">❤️ Vidas: <span id="lives" class="lives">1</span></div>
+<div class="stats-box">🔥 Racha: <span id="streak" class="streak">0</span></div>
+<div class="stats-box">🏆 Mejor: <span id="best" class="streak">0</span></div>
+</div>
+<div id="score">Puntos: 0</div>
+<div class="quiz-container">
+<h2 id="question"></h2>
+<img id="image" />
+<div id="options"></div>
+</div>
+<script>
+/* ==========================
+   LISTA DE PREGUNTAS (20)
+   TODAS CON IMÁGENES DE ALOJAMIENTO ESTABLE
+============================= */
+const questions = [
+{question:"¿En qué ciudad se ambienta GTA III?",image:"http://googleusercontent.com/image_generation_content/0",options:["Liberty City","Vice City","San Fierro","Los Santos"],answer:0},
+{question:"¿Cómo se llama el protagonista de GTA Vice City?",image:"http://googleusercontent.com/image_generation_content/1",options:["Tommy Vercetti","CJ","Niko Bellic","Claude"],answer:0},
+{question:"¿En qué año transcurre GTA Vice City?",image:"http://googleusercontent.com/image_generation_content/2",options:["1986","1992","2001","1979"],answer:0},
+{question:"¿Cuál es la ciudad principal de GTA San Andreas?",image:"http://googleusercontent.com/image_generation_content/3",options:["Los Santos","Liberty City","Vice City","Carcer City"],answer:0},
+{question:"¿Cómo se llaman los tres protagonistas de GTA V?",image:"http://googleusercontent.com/image_generation_content/4",options:["Michael, Franklin y Trevor","Luis, Niko y Johnny","CJ, Ryder y Smoke","Roman, Vlad y Brucie"],answer:0},
+{question:"¿Qué pandilla es rival de Grove Street?",image:"http://googleusercontent.com/image_generation_content/5",options:["Ballas","Vagos","Triadas","Mafía Leone"],answer:0},
+{question:"¿Cuál es el nombre real de Big Smoke?",image:"http://googleusercontent.com/image_generation_content/6",options:["Melvin Harris","Carl Johnson","Sean Johnson","Tyrone King"],answer:0}, 
+{question:"¿Qué consola recibió primero GTA IV?",image:"http://googleusercontent.com/image_generation_content/7",options:["Xbox 360","PlayStation 3","PC","Wii"],answer:0},
+{question:"¿Dónde vive Franklin al inicio de GTA V?",image:"http://googleusercontent.com/image_generation_content/8",options:["Strawberry","Rockford Hills","Sandy Shores","Ganton"],answer:0}, 
+{question:"¿Quién es policía corrupto en GTA San Andreas?",image:"http://googleusercontent.com/image_generation_content/9",options:["Tenpenny","Pulaski","Hernandez","Smoke"],answer:0},
+{question:"¿En qué barrio comienza GTA IV?",image:"http://googleusercontent.com/image_generation_content/10",options:["Broker","Algonquin","Alderney","Dukes"],answer:0}, 
+{question:"¿Quién lidera The Lost MC?",image:"http://googleusercontent.com/image_generation_content/11",options:["Billy Grey","Johnny Klebitz","Brian Jeremy","Angus"],answer:0}, 
+{question:"¿Qué casino aparece en GTA San Andreas?",image:"http://googleusercontent.com/image_generation_content/12",options:["Caligula's Palace","The Four Dragons","Venturas Royale","Royal Dragon Casino"],answer:0},
+{question:"¿Cuál es la banda latina en GTA V?",image:"http://googleusercontent.com/image_generation_content/13",options:["Varrios Los Aztecas","Los Santos Vagos","Ballas","Los Rifa"],answer:0}, 
+{question:"¿Quién es el hacker que ayuda en los golpes de GTA V?",image:"http://googleusercontent.com/image_generation_content/14",options:["Lester Crest","Dave Norton","Wade","Floyd"],answer:0},
+{question:"¿Quién es el protagonista de GTA IV?",image:"http://googleusercontent.com/image_generation_content/15",options:["Niko Bellic","Roman","Dimitri","Gay Tony"],answer:0},
+{question:"¿Qué animal acompaña a Franklin?",image:"http://googleusercontent.com/image_generation_content/16",options:["Chop","Snowball","Toby","Rufus"],answer:0},
+{question:"¿Cómo se llama el amigo de Franklin?",image:"http://googleusercontent.com/image_generation_content/17",options:["Lamar","Trevor","Denise","Jimmy"],answer:0}, 
+{question:"¿En qué ciudad desarrolla su historia GTA Vice City Stories?",image:"http://googleusercontent.com/image_generation_content/18",options:["Vice City","Liberty City","Los Santos","Carcer City"],answer:0},
+{question:"¿Qué arma icónica pertenece a GTA San Andreas?",image:"http://googleusercontent.com/image_generation_content/19",options:["C4","Ray Gun","Pistola Láser","Daga de hielo"],answer:0}
+];
+
+/* ==========================
+   VARIABLES PRINCIPALES
+============================= */
+let lives = 1;
+document.getElementById("lives").textContent = lives;
+
+const STREAK_KEY = "quiz_gta_streak";
+const BEST_KEY = "quiz_gta_best";
+let streak = parseInt(localStorage.getItem(STREAK_KEY)) || 0;
+let best = parseInt(localStorage.getItem(BEST_KEY)) || 0;
+document.getElementById("streak").textContent = streak;
+document.getElementById("best").textContent = best;
+
+let points = 0;
+let currentIndex = 0;
+let order = [...questions.keys()].sort(() => Math.random() - 0.5);
+
+function showOverlay(html){
+const overlay=document.createElement("div");
+overlay.className="overlay";
+overlay.innerHTML=`<div class='overlay-box'>${html}<br><button class='play-again' onclick='location.reload()'>JUGAR OTRA VEZ</button><button class='return-btn' onclick="location.href='floogys_games_index.html'">INICIO</button></div>`;
+document.body.appendChild(overlay);
+}
+
+function loadQuestion(){
+if(currentIndex >= order.length){showOverlay(`✔ QUIZ COMPLETADO<br>Puntaje: <b>${points}/${questions.length}</b>`);return;}
+const q = questions[order[currentIndex]];
+document.getElementById("question").textContent = q.question;
+document.getElementById("image").src = q.image;
+const opBox=document.getElementById("options");opBox.innerHTML="";
+let list=q.options.map((t,i)=>({t,correct:i===q.answer}));
+list.sort(()=>Math.random()-.5);
+list.forEach(opt=>{const div=document.createElement("div");div.className="option";div.textContent=opt.t;div.onclick=()=>select(div,opt.correct);opBox.appendChild(div);});
+}
+
+function select(el,correct){
+    document.querySelectorAll(".option").forEach(o=>o.onclick=null);
+    
+    if(correct){
+        el.classList.add("correct");
+        points++;
+        document.getElementById("score").textContent=`Puntos: ${points}`;
+        
+        streak++;
+        localStorage.setItem(STREAK_KEY,streak);
+        if(streak>best){
+            best=streak;
+            localStorage.setItem(BEST_KEY,best);
+        }
+        document.getElementById("streak").textContent=streak;
+        document.getElementById("best").textContent=best;
+
+        setTimeout(()=>{currentIndex++;loadQuestion();},600);
+
+    }else{
+        el.classList.add("wrong");
+        lives=0; 
+        document.getElementById("lives").textContent=0;
+        streak=0;
+        localStorage.setItem(STREAK_KEY,0);
+        document.getElementById("streak").textContent=0;
+        
+        setTimeout(()=>{showOverlay("❌ RESPUESTA INCORRECTA<br>Perdiste el quiz")},500);
+        return;
+    }
+}
+
+loadQuestion();
+</script>
+</body>
+</html>
